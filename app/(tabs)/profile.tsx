@@ -1,6 +1,6 @@
 // app/(tabs)/profile.tsx
-import { useAuth } from '@/app/context/AuthContext';
-import { useTheme } from '@/app/context/ThemeContext';
+import { useAuth } from '@/app/_context/AuthContext';
+import { useTheme } from '@/app/_context/ThemeContext';
 import { getThemeColors } from '@/app/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   },
   detailsCard: {
     marginHorizontal: 24,
-    borderRadius: 16,
+    borderRadius: 40,
     padding: 16,
     marginBottom: 20,
     shadowColor: '#000',
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 50,
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 50,
     gap: 8,
     borderWidth: 1.5,
     marginTop: 8,
