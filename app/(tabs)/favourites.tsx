@@ -1,23 +1,21 @@
-
 // app/(tabs)/favorites.tsx 
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  FlatList,
-  Image,
-  TouchableOpacity,
-  StatusBar,
-} from 'react-native';
+import { useTheme } from '@/app/_context/ThemeContext';
+import { getThemeColors } from '@/app/theme/colors';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { removeFavorite } from '@/store/slices/favoritesSlice';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { useTheme } from '@/app/context/ThemeContext';
-import { getThemeColors } from '@/app/theme/colors';
-import { removeFavorite } from '@/store/slices/favoritesSlice';
-import { destinations } from '../data/destinations';
+import React from 'react';
+import {
+  FlatList,
+  Image,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 export default function FavoritesScreen() {
   const router = useRouter();
@@ -28,8 +26,11 @@ export default function FavoritesScreen() {
   // Get favorites from Redux store
   const favoriteIds = useAppSelector(state => state.favorites.items);
   
+  // Get all UK destinations from Redux
+  const allDestinations = useAppSelector(state => state.destinations.items);
+  
   // Filter destinations to get only favorites
-  const favoriteDestinations = destinations.filter(dest => 
+  const favoriteDestinations = allDestinations.filter(dest => 
     favoriteIds.includes(dest.id)
   );
 
@@ -40,9 +41,12 @@ export default function FavoritesScreen() {
   const renderFavoriteCard = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: colors.surface }]}
-      onPress={() => router.push(`/destination/${item.id}`)}
+      onPress={() => router.push({
+        pathname: '/destination/[id]',
+        params: { id: item.id }
+      })}
     >
-      <Image source={item.image} style={styles.cardImage} />
+      <Image source={{ uri: item.image }} style={styles.cardImage} />
       
       {/* Favorite Icon */}
       <TouchableOpacity
@@ -90,7 +94,7 @@ export default function FavoritesScreen() {
       </Text>
       <TouchableOpacity
         style={[styles.exploreButton, { backgroundColor: colors.primary }]}
-        onPress={() => router.push('/')}
+        onPress={() => router.push('/(tabs)')}
       >
         <Text style={styles.exploreButtonText}>Explore Destinations</Text>
       </TouchableOpacity>
