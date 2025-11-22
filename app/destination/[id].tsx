@@ -1,22 +1,22 @@
 // app/destination/[id].tsx
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  Dimensions,
-} from "react-native";
+import { useTheme } from "@/app/_context/ThemeContext";
+import { getThemeColors } from "@/app/theme/colors";
+import { UK_DESTINATIONS } from '@/services/transportAPI';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { toggleFavorite } from '@/store/slices/favoritesSlice';
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { destinations } from "../data/destinations";
-import { useTheme } from "@/app/context/ThemeContext";
-import { getThemeColors } from "@/app/theme/colors";
-import { useAppSelector, useAppDispatch } from '@/store/hooks';
-import { toggleFavorite } from '@/store/slices/favoritesSlice';
+import React from "react";
+import {
+  Dimensions,
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const { width } = Dimensions.get('window');
 
@@ -32,7 +32,7 @@ const DestinationDetails = () => {
   const isFavorite = favorites.includes(String(id));
 
   // Find destination by id
-  const destination = destinations.find((d) => d.id === id);
+  const destination = UK_DESTINATIONS.find((d) => d.id === id);
 
   const handleToggleFavorite = () => {
     dispatch(toggleFavorite(String(id)));
@@ -59,7 +59,7 @@ const DestinationDetails = () => {
       >
         {/* Image with rounded bottom corners */}
         <View style={styles.imageContainer}>
-          <Image source={destination.image} style={styles.image} />
+          <Image source={{ uri: destination.image }} style={styles.image} />
           
           {/* Back Button */}
           <TouchableOpacity style={styles.backIcon} onPress={() => router.back()}>
