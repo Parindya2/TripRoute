@@ -1,191 +1,114 @@
 // app/(tabs)/index.tsx 
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  Image,
-  TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useAuth } from '@/app/context/AuthContext';
-import { useTheme } from '@/app/context/ThemeContext';
+import { useAuth } from '@/app/_context/AuthContext';
+import { useTheme } from '@/app/_context/ThemeContext';
 import { getThemeColors } from '@/app/theme/colors';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import {
+  selectAllDestinations,
+  selectSearchQuery,
+  selectSelectedCategory,
+  setSearchQuery,
+  setSelectedCategory
+} from '@/store/slices/destinationsSlice';
 import { toggleFavorite } from '@/store/slices/favoritesSlice';
-
-interface Destination {
-  id: string;
-  name: string;
-  location: string;
-  rating: number;
-  image: any;
-}
-
-interface Transport {
-  id: string;
-  name: string;
-  type: 'bus' | 'train' | 'flight';
-  price: number;
-  duration: string;
-  departure: string;
-  rating: number;
-}
-
-interface TrendingRoute {
-  id: string;
-  from: string;
-  to: string;
-  travelers: number;
-  image: any;
-}
+import {
+  fetchNearbyStations,
+  selectNearbyLoading,
+  selectNearbyStations,
+  setUserLocation
+} from '@/store/slices/nearbySlice1';
+import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+// IMPORTANT: Import from react-native-safe-area-context, NOT from react-native
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const HomeScreen = () => {
-  const [selectedCategory, setSelectedCategory] = React.useState('All');
-  const [searchQuery, setSearchQuery] = React.useState('');
   const [showSearchResults, setShowSearchResults] = React.useState(false);
   const router = useRouter();
   const { user } = useAuth();
   const { isDarkMode } = useTheme();
   const colors = getThemeColors(isDarkMode);
+  const dispatch = useAppDispatch();
 
-  // Get nearby stations from Redux
-  const nearbyStations = useAppSelector(state => state.nearby.stations);
+  // Redux state
+  const destinations = useAppSelector(selectAllDestinations);
+  const searchQuery = useAppSelector(selectSearchQuery);
+  const selectedCategory = useAppSelector(selectSelectedCategory);
+  const nearbyStations = useAppSelector(selectNearbyStations);
+  const nearbyLoading = useAppSelector(selectNearbyLoading);
 
   // Group stations by type
-  const busStations = nearbyStations.filter(s => s.type === 'bus');
-  const trainStations = nearbyStations.filter(s => s.type === 'train');
-  const flightStations = nearbyStations.filter(s => s.type === 'flight');
+  type NearbyStation = { id?: string; name?: string; type?: string; distance?: number; [key: string]: any };
+  const busStations = nearbyStations.filter((s: NearbyStation) => s.type === 'bus');
+  const trainStations = nearbyStations.filter((s: NearbyStation) => s.type === 'train');
 
-  const allDestinations: Destination[] = [
-    {
-      id: '1',
-      name: 'St. Regis Bora Bora',
-      location: 'French Polynesia',
-      rating: 4.8,
-      image: require('../../assets/images/image1.jpg'),
-    },
-    {
-      id: '2',
-      name: 'St. Regis Bora',
-      location: 'French Polynesia',
-      rating: 4.8,
-      image: require('../../assets/images/image2.jpg'),
-    },
-    {
-      id: '3',
-      name: 'Santorini',
-      location: 'Greece',
-      rating: 4.8,
-      image: require('../../assets/images/image3.jpg'),
-    },
-    {
-      id: '4',
-      name: 'Maldives Resort',
-      location: 'Maldives',
-      rating: 4.9,
-      image: require('../../assets/images/image1.jpg'),
-    },
-    {
-      id: '5',
-      name: 'Bali Paradise',
-      location: 'Indonesia',
-      rating: 4.7,
-      image: require('../../assets/images/image2.jpg'),
-    },
-    {
-      id: '6',
-      name: 'Dubai Marina',
-      location: 'UAE',
-      rating: 4.6,
-      image: require('../../assets/images/image3.jpg'),
-    },
-    {
-      id: '7',
-      name: 'Swiss Alps',
-      location: 'Switzerland',
-      rating: 4.9,
-      image: require('../../assets/images/image1.jpg'),
-    },
-    {
-      id: '8',
-      name: 'Tokyo Tower',
-      location: 'Japan',
-      rating: 4.8,
-      image: require('../../assets/images/image2.jpg'),
-    },
-  ];
+  // Get user location and fetch nearby stations on mount
+  useEffect(() => {
+    loadUserLocation();
+  }, []);
 
-  const destinations: Destination[] = allDestinations.slice(0, 3);
+  const loadUserLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({});
+        const { latitude, longitude } = location.coords;
+        
+        dispatch(setUserLocation({ latitude, longitude }));
+        dispatch(fetchNearbyStations({ latitude, longitude }));
+      } else {
+        // Use default location (London) if permission denied
+        const defaultLocation = { latitude: 51.5074, longitude: -0.1278 };
+        dispatch(setUserLocation(defaultLocation));
+        dispatch(fetchNearbyStations(defaultLocation));
+      }
+    } catch (error) {
+      console.error('Error loading location:', error);
+      // Fallback to default location
+      const defaultLocation = { latitude: 51.5074, longitude: -0.1278 };
+      dispatch(setUserLocation(defaultLocation));
+      dispatch(fetchNearbyStations(defaultLocation));
+    }
+  };
 
-  const transportOptions: Transport[] = [
-    {
-      id: 't1',
-      name: 'Express Coach',
-      type: 'bus',
-      price: 25,
-      duration: '4h 30m',
-      departure: '08:00 AM',
-      rating: 4.5,
-    },
-    {
-      id: 't2',
-      name: 'Rapid Train',
-      type: 'train',
-      price: 45,
-      duration: '3h 15m',
-      departure: '09:30 AM',
-      rating: 4.7,
-    },
-    {
-      id: 't3',
-      name: 'Direct Flight',
-      type: 'flight',
-      price: 120,
-      duration: '1h 45m',
-      departure: '11:00 AM',
-      rating: 4.8,
-    },
-  ];
+  const handleSearchChange = (text: string) => {
+    dispatch(setSearchQuery(text));
+    if (text.trim()) {
+      setShowSearchResults(true);
+    }
+  };
 
-  const trendingRoutes: TrendingRoute[] = [
-    {
-      id: 'tr1',
-      from: 'New York',
-      to: 'Miami',
-      travelers: 1234,
-      image: require('../../assets/images/image1.jpg'),
-    },
-    {
-      id: 'tr2',
-      from: 'London',
-      to: 'Paris',
-      travelers: 2105,
-      image: require('../../assets/images/image2.jpg'),
-    },
-    {
-      id: 'tr3',
-      from: 'Tokyo',
-      to: 'Kyoto',
-      travelers: 892,
-      image: require('../../assets/images/image3.jpg'),
-    },
-  ];
+  const handleCategoryChange = (category: string) => {
+    dispatch(setSelectedCategory(category));
+  };
 
-  const filteredDestinations = searchQuery.trim()
-    ? allDestinations.filter((dest) =>
-        dest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        dest.location.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : allDestinations;
+  const handleClearSearch = () => {
+    dispatch(setSearchQuery(''));
+    setShowSearchResults(false);
+  };
+
+  // Get first 3 destinations for popular section
+  const popularDestinations = destinations.slice(0, 3);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top']} // Only apply safe area to top
+    >
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
@@ -194,7 +117,7 @@ const HomeScreen = () => {
             <Text style={[styles.greeting, { color: colors.textSecondary }]}>
               Hello {user?.firstName || 'Traveler'},
             </Text>
-            <Text style={[styles.title, { color: colors.text }]}>Travelling Today ?</Text>
+            <Text style={[styles.title, { color: colors.text }]}>Travelling Today?</Text>
           </View>
           <TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
             <Image
@@ -209,17 +132,14 @@ const HomeScreen = () => {
           <Ionicons name="search" size={20} color={colors.textTertiary} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search Destination"
+            placeholder="Search UK Destinations"
             placeholderTextColor={colors.textTertiary}
             value={searchQuery}
-            onChangeText={setSearchQuery}
-            onFocus={() => setShowSearchResults(true)}
+            onChangeText={handleSearchChange}
+            onFocus={() => searchQuery && setShowSearchResults(true)}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => {
-              setSearchQuery('');
-              setShowSearchResults(false);
-            }}>
+            <TouchableOpacity onPress={handleClearSearch}>
               <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
             </TouchableOpacity>
           )}
@@ -236,9 +156,13 @@ const HomeScreen = () => {
                 <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.searchResultsList}>
-              {filteredDestinations.length > 0 ? (
-                filteredDestinations.map((destination) => (
+            <ScrollView 
+              style={styles.searchResultsList}
+              nestedScrollEnabled={true}
+              keyboardShouldPersistTaps="handled"
+            >
+              {destinations.length > 0 ? (
+                destinations.map((destination: any) => (
                   <SearchResultItem
                     key={destination.id}
                     destination={destination}
@@ -254,7 +178,9 @@ const HomeScreen = () => {
                 ))
               ) : (
                 <View style={styles.noResults}>
-                  <Text style={[styles.noResultsText, { color: colors.textTertiary }]}>No destinations found</Text>
+                  <Text style={[styles.noResultsText, { color: colors.textTertiary }]}>
+                    No destinations found
+                  </Text>
                 </View>
               )}
             </ScrollView>
@@ -268,35 +194,28 @@ const HomeScreen = () => {
             label="All"
             selected={selectedCategory === 'All'}
             colors={colors}
-            onPress={() => setSelectedCategory('All')}
+            onPress={() => handleCategoryChange('All')}
           />
           <CategoryButton
             icon="🏖️"
             label="Beach"
             selected={selectedCategory === 'Beach'}
             colors={colors}
-            onPress={() => setSelectedCategory('Beach')}
+            onPress={() => handleCategoryChange('Beach')}
           />
           <CategoryButton
-            icon="⛰️"
-            label="Mountain"
-            selected={selectedCategory === 'Mountain'}
+            icon="🏙️"
+            label="City"
+            selected={selectedCategory === 'City'}
             colors={colors}
-            onPress={() => setSelectedCategory('Mountain')}
-          />
-          <CategoryButton
-            icon="🏕️"
-            label="Camping"
-            selected={selectedCategory === 'Camping'}
-            colors={colors}
-            onPress={() => setSelectedCategory('Camping')}
+            onPress={() => handleCategoryChange('City')}
           />
         </View>
 
-        {/* Popular Destination Section */}
+        {/* Popular Destinations Section */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Popular Destination</Text>
-          <TouchableOpacity>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Popular UK Destinations</Text>
+          <TouchableOpacity onPress={() => router.push('/destinations/all')}>
             <Text style={[styles.viewAll, { color: colors.primary }]}>View all</Text>
           </TouchableOpacity>
         </View>
@@ -307,162 +226,62 @@ const HomeScreen = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.destinationsScroll}
         >
-          {destinations.map((destination) => (
-            <DestinationCard key={destination.id} destination={destination} colors={colors} />
+          {popularDestinations.map((destination: any) => (
+            <DestinationCard 
+              key={destination.id} 
+              destination={destination} 
+              colors={colors} 
+            />
           ))}
         </ScrollView>
 
-
-        {/* Trending Routes */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Trending Routes</Text>
-          <TouchableOpacity>
-            <Text style={[styles.viewAll, { color: colors.primary }]}>View all</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.trendingScroll}
-        >
-          {trendingRoutes.map((route) => (
-            <TrendingRouteCard key={route.id} route={route} />
-          ))}
-        </ScrollView>
-
-  
         {/* Near By From You Section */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Near By From You</Text>
-          <TouchableOpacity>
-            <Text style={[styles.viewAll, { color: colors.primary }]}>View all</Text>
+          <TouchableOpacity onPress={loadUserLocation}>
+            <Ionicons name="refresh" size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.nearbyContainer}>
-          <NearbyCard
-            icon="bus-outline"
-            label="Bus Stations"
-            count={busStations.length}
-            stations={busStations}
-            colors={colors}
-            onPress={() => router.push({
-              pathname: '/stations/[type]',
-              params: { type: 'bus' }
-            })}
-          />
-          <NearbyCard
-            icon="train-outline"
-            label="Train Stations"
-            count={trainStations.length}
-            stations={trainStations}
-            colors={colors}
-            onPress={() => router.push({
-              pathname: '/stations/[type]',
-              params: { type: 'train' }
-            })}
-          />
-          <NearbyCard
-            icon="airplane-outline"
-            label="Airports"
-            count={flightStations.length}
-            stations={flightStations}
-            colors={colors}
-            onPress={() => router.push({
-              pathname: '/stations/[type]',
-              params: { type: 'flight' }
-            })}
-          />
-        </View>
+        {nearbyLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+              Finding nearby stations...
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.nearbyContainer}>
+            <NearbyCard
+              icon="bus-outline"
+              label="Bus Stops"
+              count={busStations.length}
+              stations={busStations}
+              colors={colors}
+              onPress={() => router.push({
+                pathname: '/stations/[type]',
+                params: { type: 'bus' }
+              })}
+            />
+            <NearbyCard
+              icon="train-outline"
+              label="Train Stations"
+              count={trainStations.length}
+              stations={trainStations}
+              colors={colors}
+              onPress={() => router.push({
+                pathname: '/stations/[type]',
+                params: { type: 'train' }
+              })}
+            />
+          </View>
+        )}
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
     </SafeAreaView>
   );
 };
-
-// Transport Card Component
-const TransportCard = ({ transport, colors }: { transport: Transport; colors: any }) => {
-  const getTransportIcon = (type: string) => {
-    switch (type) {
-      case 'bus':
-        return 'bus-outline';
-      case 'train':
-        return 'train-outline';
-      case 'flight':
-        return 'airplane-outline';
-      default:
-        return 'car-outline';
-    }
-  };
-
-  return (
-    <TouchableOpacity style={[styles.transportCard, { backgroundColor: colors.surface }]}>
-      <View style={styles.transportHeader}>
-        <View style={[styles.transportIcon, { backgroundColor: colors.primary + '20' }]}>
-          <Ionicons name={getTransportIcon(transport.type)} size={24} color={colors.primary} />
-        </View>
-        <View style={styles.transportInfo}>
-          <Text style={[styles.transportName, { color: colors.text }]}>{transport.name}</Text>
-          <Text style={[styles.transportTime, { color: colors.textSecondary }]}>{transport.departure}</Text>
-        </View>
-      </View>
-      <View style={styles.transportDetails}>
-        <View style={styles.detailItem}>
-          <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-          <Text style={[styles.detailText, { color: colors.textSecondary }]}>{transport.duration}</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Ionicons name="star" size={14} color="#FFC107" />
-          <Text style={[styles.detailText, { color: colors.textSecondary }]}>{transport.rating}</Text>
-        </View>
-      </View>
-      <View style={styles.transportPrice}>
-        <Text style={[styles.priceLabel, { color: colors.textTertiary }]}>From</Text>
-        <Text style={[styles.priceAmount, { color: colors.primary }]}>${transport.price}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-};
-
-// Trending Route Card Component
-const TrendingRouteCard = ({ route }: { route: TrendingRoute }) => (
-  <TouchableOpacity style={styles.trendingCard}>
-    <Image source={route.image} style={styles.trendingImage} />
-    <View style={styles.trendingOverlay} />
-    <View style={styles.trendingContent}>
-      <Text style={styles.trendingRoute}>{route.from} → {route.to}</Text>
-      <View style={styles.travelersBadge}>
-        <Ionicons name="people-outline" size={12} color="#FFF" />
-        <Text style={styles.travelersText}>{route.travelers} travelers</Text>
-      </View>
-    </View>
-  </TouchableOpacity>
-);
-
-// Nearby Card Component
-const NearbyCard = ({ icon, label, count, stations, colors, onPress }: any) => (
-  <TouchableOpacity style={[styles.nearbyCard, { backgroundColor: colors.surface }]} onPress={onPress}>
-    <View style={[styles.nearbyIcon, { backgroundColor: colors.primary + '20' }]}>
-      <Ionicons name={icon} size={28} color={colors.primary} />
-    </View>
-    <Text style={[styles.nearbyLabel, { color: colors.text }]}>{label}</Text>
-    <Text style={[styles.nearbyCount, { color: colors.primary }]}>{count} nearby</Text>
-
-    {/* Show first station preview */}
-    {stations && stations.length > 0 && (
-      <View style={[styles.stationPreview, { borderTopColor: colors.border }]}>
-        <Text style={[styles.stationName, { color: colors.text }]} numberOfLines={1}>
-          {stations[0].name}
-        </Text>
-        <Text style={[styles.stationDistance, { color: colors.textSecondary }]}>
-          {stations[0].distance} km away
-        </Text>
-      </View>
-    )}
-  </TouchableOpacity>
-);
 
 // Search Result Item Component
 const SearchResultItem = ({ destination, colors, onPress }: any) => {
@@ -476,19 +295,28 @@ const SearchResultItem = ({ destination, colors, onPress }: any) => {
   };
 
   return (
-    <TouchableOpacity style={[styles.searchResultItem, { borderBottomColor: colors.border }]} onPress={onPress}>
-      <Image source={destination.image} style={styles.searchResultImage} />
+    <TouchableOpacity 
+      style={[styles.searchResultItem, { borderBottomColor: colors.border }]} 
+      onPress={onPress}
+    >
+      <Image source={{ uri: destination.image }} style={styles.searchResultImage} />
       <View style={styles.searchResultInfo}>
-        <Text style={[styles.searchResultName, { color: colors.text }]}>{destination.name}</Text>
+        <Text style={[styles.searchResultName, { color: colors.text }]}>
+          {destination.name}
+        </Text>
         <View style={styles.searchResultLocation}>
           <Ionicons name="location-outline" size={14} color={colors.primary} />
-          <Text style={[styles.searchResultLocationText, { color: colors.textSecondary }]}>{destination.location}</Text>
+          <Text style={[styles.searchResultLocationText, { color: colors.textSecondary }]}>
+            {destination.location}
+          </Text>
         </View>
       </View>
       <View style={styles.searchResultRight}>
         <View style={[styles.searchResultRating, { backgroundColor: colors.primary + '20' }]}>
           <Ionicons name="star" size={14} color="#FFC107" />
-          <Text style={[styles.searchResultRatingText, { color: colors.text }]}>{destination.rating}</Text>
+          <Text style={[styles.searchResultRatingText, { color: colors.text }]}>
+            {destination.rating}
+          </Text>
         </View>
         <TouchableOpacity onPress={handleToggleFavorite} style={styles.searchFavoriteButton}>
           <Ionicons
@@ -510,11 +338,12 @@ const CategoryButton = ({ icon, label, selected, colors, onPress }: any) => (
       {
         backgroundColor: selected ? colors.primary + '20' : colors.surface,
         borderColor: selected ? colors.primary : 'transparent',
+        borderWidth: selected ? 1 : 0,
       }
     ]}
     onPress={onPress}
   >
-    <Text style={styles.categoryIcon}>{icon}</Text>
+    {icon && <Text style={styles.categoryIcon}>{icon}</Text>}
     <Text style={[styles.categoryLabel, { color: selected ? colors.primary : colors.textSecondary }]}>
       {label}
     </Text>
@@ -522,10 +351,9 @@ const CategoryButton = ({ icon, label, selected, colors, onPress }: any) => (
 );
 
 // Destination Card Component
-const DestinationCard = ({ destination, colors }: { destination: Destination; colors: any }) => {
+const DestinationCard = ({ destination, colors }: { destination: any; colors: any }) => {
   const router = useRouter();
   const dispatch = useAppDispatch();
-
   const favoriteIds = useAppSelector(state => state.favorites.items);
   const isFavorite = favoriteIds.includes(destination.id);
 
@@ -544,7 +372,7 @@ const DestinationCard = ({ destination, colors }: { destination: Destination; co
         })
       }
     >
-      <Image source={destination.image} style={styles.cardImage} />
+      <Image source={{ uri: destination.image }} style={styles.cardImage} />
 
       <TouchableOpacity
         style={styles.favoriteButton}
@@ -558,15 +386,21 @@ const DestinationCard = ({ destination, colors }: { destination: Destination; co
       </TouchableOpacity>
 
       <View style={styles.cardContent}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>{destination.name}</Text>
+        <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>
+          {destination.name}
+        </Text>
         <View style={styles.cardFooter}>
           <View style={styles.locationContainer}>
             <Ionicons name="location-outline" size={14} color={colors.primary} />
-            <Text style={[styles.locationText, { color: colors.textSecondary }]}>{destination.location}</Text>
+            <Text style={[styles.locationText, { color: colors.textSecondary }]} numberOfLines={1}>
+              {destination.location}
+            </Text>
           </View>
           <View style={styles.ratingContainer}>
             <Ionicons name="star" size={14} color="#FFC107" />
-            <Text style={[styles.ratingText, { color: colors.textSecondary }]}>{destination.rating}</Text>
+            <Text style={[styles.ratingText, { color: colors.textSecondary }]}>
+              {destination.rating}
+            </Text>
           </View>
         </View>
       </View>
@@ -574,28 +408,53 @@ const DestinationCard = ({ destination, colors }: { destination: Destination; co
   );
 };
 
+// Nearby Card Component
+const NearbyCard = ({ icon, label, count, stations, colors, onPress }: any) => (
+  <TouchableOpacity 
+    style={[styles.nearbyCard, { backgroundColor: colors.surface }]} 
+    onPress={onPress}
+  >
+    <View style={[styles.nearbyIcon, { backgroundColor: colors.primary + '20' }]}>
+      <Ionicons name={icon} size={28} color={colors.primary} />
+    </View>
+    <Text style={[styles.nearbyLabel, { color: colors.text }]}>{label}</Text>
+    <Text style={[styles.nearbyCount, { color: colors.primary }]}>
+      {count} nearby
+    </Text>
+
+    {/* Show first station preview */}
+    {stations && stations.length > 0 && (
+      <View style={[styles.stationPreview, { borderTopColor: colors.border }]}>
+        <Text style={[styles.stationName, { color: colors.text }]} numberOfLines={1}>
+          {stations[0].name}
+        </Text>
+        <Text style={[styles.stationDistance, { color: colors.textSecondary }]}>
+          {stations[0].distance.toFixed(2)} km away
+        </Text>
+      </View>
+    )}
+  </TouchableOpacity>
+);
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 25,
+    paddingTop: 16, // Reduced from 25 since SafeAreaView handles the top now
     paddingBottom: 15,
   },
   greeting: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 4,
   },
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#000',
   },
   avatar: {
     width: 50,
@@ -606,7 +465,6 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
     marginHorizontal: 20,
     marginVertical: 15,
     marginBottom: 20,
@@ -625,16 +483,14 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#000',
   },
   searchResultsContainer: {
     position: 'absolute',
     top: 140,
     left: 20,
     right: 20,
-    backgroundColor: '#FFF',
+    bottom: 100, // Leave space for keyboard and tab bar
     borderRadius: 12,
-    maxHeight: 500,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -648,22 +504,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   searchResultsTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#000',
   },
   searchResultsList: {
-    maxHeight: 400,
+    flex: 1,
   },
   searchResultItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
   },
   searchResultImage: {
     width: 60,
@@ -678,7 +531,6 @@ const styles = StyleSheet.create({
   searchResultName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 4,
   },
   searchResultLocation: {
@@ -688,7 +540,6 @@ const styles = StyleSheet.create({
   },
   searchResultLocationText: {
     fontSize: 13,
-    color: '#666',
   },
   searchResultRight: {
     alignItems: 'flex-end',
@@ -698,14 +549,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FFF9E6',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
   searchResultRatingText: {
     fontSize: 13,
-    color: '#666',
     fontWeight: '600',
   },
   searchFavoriteButton: {
@@ -717,7 +566,6 @@ const styles = StyleSheet.create({
   },
   noResultsText: {
     fontSize: 15,
-    color: '#999',
   },
   categoriesContainer: {
     flexDirection: 'row',
@@ -728,7 +576,6 @@ const styles = StyleSheet.create({
   categoryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
@@ -738,21 +585,13 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  categoryButtonSelected: {
-    backgroundColor: '#E0F7FA',
-  },
   categoryIcon: {
     fontSize: 18,
     marginRight: 6,
   },
   categoryLabel: {
     fontSize: 14,
-    color: '#666',
     fontWeight: '500',
-  },
-  categoryLabelSelected: {
-    color: '#00BCD4',
-    fontWeight: '600',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -765,11 +604,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
   },
   viewAll: {
     fontSize: 14,
-    color: '#00BCD4',
     fontWeight: '500',
   },
   destinationsScroll: {
@@ -778,7 +615,6 @@ const styles = StyleSheet.create({
   },
   card: {
     width: 220,
-    backgroundColor: '#FFF',
     borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -786,7 +622,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    position: 'relative',
     marginBottom: 20,
   },
   cardImage: {
@@ -816,7 +651,6 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#000',
     marginBottom: 8,
   },
   cardFooter: {
@@ -828,10 +662,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flex: 1,
+    marginRight: 8,
   },
   locationText: {
     fontSize: 12,
-    color: '#666',
+    flex: 1,
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -840,127 +676,15 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 12,
-    color: '#666',
     fontWeight: '600',
   },
-  transportContainer: {
-    paddingHorizontal: 20,
-    gap: 12,
-    marginBottom: 10,
-  },
-  transportCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  transportHeader: {
-    flexDirection: 'row',
+  loadingContainer: {
+    padding: 40,
     alignItems: 'center',
-    marginBottom: 12,
   },
-  transportIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    backgroundColor: '#E0F7FA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  transportInfo: {
-    flex: 1,
-  },
-  transportName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 2,
-  },
-  transportTime: {
-    fontSize: 13,
-    color: '#666',
-  },
-  transportDetails: {
-    flexDirection: 'row',
-    gap: 15,
-    marginBottom: 12,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  detailText: {
-    fontSize: 13,
-    color: '#666',
-  },
-  transportPrice: {
-    alignItems: 'flex-end',
-  },
-  priceLabel: {
-    fontSize: 11,
-    color: '#999',
-  },
-  priceAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#00BCD4',
-  },
-  trendingScroll: {
-    paddingHorizontal: 20,
-    gap: 15,
-  },
-  trendingCard: {
-    width: 180,
-    height: 140,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 20,
-  },
-  trendingImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#E0E0E0',
-  },
-  trendingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  trendingContent: {
-    ...StyleSheet.absoluteFillObject,
-    padding: 12,
-    justifyContent: 'flex-end',
-  },
-  trendingRoute: {
+  loadingText: {
+    marginTop: 12,
     fontSize: 14,
-    fontWeight: '700',
-    color: '#FFF',
-    marginBottom: 6,
-  },
-  travelersBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  travelersText: {
-    fontSize: 11,
-    color: '#FFF',
-    fontWeight: '500',
   },
   nearbyContainer: {
     flexDirection: 'row',
@@ -970,7 +694,6 @@ const styles = StyleSheet.create({
   },
   nearbyCard: {
     flex: 1,
-    backgroundColor: '#FFF',
     borderRadius: 16,
     padding: 15,
     alignItems: 'center',
@@ -984,7 +707,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#E0F7FA',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -992,13 +714,11 @@ const styles = StyleSheet.create({
   nearbyLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#000',
     textAlign: 'center',
     marginBottom: 4,
   },
   nearbyCount: {
     fontSize: 12,
-    color: '#00BCD4',
     fontWeight: '500',
     marginBottom: 8,
   },
@@ -1006,18 +726,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
     width: '100%',
   },
   stationName: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#000',
     marginBottom: 2,
   },
   stationDistance: {
     fontSize: 10,
-    color: '#666',
   },
   bottomSpacing: {
     height: 40,
