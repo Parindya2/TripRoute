@@ -1,9 +1,9 @@
 // app/_layout.tsx
+import { AuthProvider } from '@/app/_context/AuthContext';
+import { ThemeProvider } from '@/app/_context/ThemeContext';
+import { store } from '@/store/store';
 import { Stack } from 'expo-router';
 import { Provider } from 'react-redux';
-import { store } from '@/store/store';
-import { AuthProvider } from '@/app/context/AuthContext';
-import { ThemeProvider } from '@/app/context/ThemeContext';
 
 export default function RootLayout() {
   return (
