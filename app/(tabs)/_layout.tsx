@@ -1,13 +1,15 @@
 // app/(tabs)/_layout.tsx
-import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/app/context/ThemeContext';
+import { useTheme } from '@/app/_context/ThemeContext';
 import { getThemeColors } from '@/app/theme/colors';
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabsLayout() {
   const { isDarkMode } = useTheme();
   const colors = getThemeColors(isDarkMode);
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -17,8 +19,8 @@ export default function TabsLayout() {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 88 : 60, // Extra height for iOS safe area
-          paddingBottom: Platform.OS === 'ios' ? 24 : 8, // Safe area padding
+          height: 60 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 8), 
           paddingTop: 8,
         },
         tabBarActiveTintColor: colors.primary,

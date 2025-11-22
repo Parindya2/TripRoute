@@ -1,21 +1,21 @@
 // app/(auth)/login.tsx
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth } from '@/app/_context/AuthContext';
 import { validateLogin } from '@/utils/validation';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const LoginScreen = () => {
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF',
-    borderRadius: 12,
+    borderRadius: 50,
     borderWidth: 1,
     borderColor: '#E0E0E0',
     paddingHorizontal: 12,
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   loginButton: {
     backgroundColor: '#00BCD4',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 50,
     alignItems: 'center',
     shadowColor: '#00BCD4',
     shadowOffset: { width: 0, height: 4 },

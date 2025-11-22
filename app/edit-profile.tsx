@@ -1,23 +1,23 @@
  // app/edit-profile.tsx
 
-import { useAuth } from '@/app/context/AuthContext';
-import { useTheme } from '@/app/context/ThemeContext';
+import { useAuth } from '@/app/_context/AuthContext';
+import { useTheme } from '@/app/_context/ThemeContext';
 import { getThemeColors } from '@/app/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const EditProfileScreen = () => {
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 50,
     borderWidth: 1,
     paddingHorizontal: 12,
     shadowColor: '#000',
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   readOnlyField: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 50,
     paddingHorizontal: 12,
     paddingVertical: 14,
   },
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   infoBox: {
     flexDirection: 'row',
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 50,
     marginBottom: 24,
     gap: 10,
   },
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   saveButton: {
     flexDirection: 'row',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#00BCD4',
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
