@@ -1,6 +1,6 @@
 // store/slices/nearbySlice1.ts
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import transportAPI from '@/services/transportAPI';
+import mockTransportService from '@/services/api/mockTransportService';  
 
 interface NearbyStation {
   id: string;
@@ -9,7 +9,7 @@ interface NearbyStation {
   distance: number;
   latitude: number;
   longitude: number;
-  code: string; // station code or atcocode
+  atcocode?: string;  
 }
 
 interface NearbyState {
@@ -29,45 +29,24 @@ const initialState: NearbyState = {
 export const fetchNearbyStations = createAsyncThunk(
   'nearby/fetchStations',
   async ({ latitude, longitude }: { latitude: number; longitude: number }) => {
-    // Fetch both train stations and bus stops
-    const [trainStations, busStops] = await Promise.all([
-      transportAPI.findNearbyStops(latitude, longitude, 'train_station'),
-      transportAPI.findNearbyStops(latitude, longitude, 'bus_stop'),
-    ]);
+    //  Use mock data instead of real API
+    const trainStations = mockTransportService.generateMockNearbyStations(
+      latitude, 
+      longitude, 
+      'train'
+    );
+    
+    const busStops = mockTransportService.generateMockNearbyStations(
+      latitude, 
+      longitude, 
+      'bus'
+    );
 
-    const stations: NearbyStation[] = [];
-
-    // Format train stations
-    if (trainStations?.member) {
-      trainStations.member.slice(0, 5).forEach((station: any) => {
-        stations.push({
-          id: station.station_code || station.name,
-          name: station.name,
-          type: 'train',
-          distance: station.distance || 0,
-          latitude: station.latitude,
-          longitude: station.longitude,
-          code: station.station_code,
-        });
-      });
-    }
-
-    // Format bus stops
-    if (busStops?.member) {
-      busStops.member.slice(0, 5).forEach((stop: any) => {
-        stations.push({
-          id: stop.atcocode || stop.name,
-          name: stop.name,
-          type: 'bus',
-          distance: stop.distance || 0,
-          latitude: stop.latitude,
-          longitude: stop.longitude,
-          code: stop.atcocode,
-        });
-      });
-    }
-
-    return stations;
+    // Combine and return all stations
+    const allStations = [...trainStations, ...busStops];
+    
+    // Sort by distance
+    return allStations.sort((a, b) => a.distance - b.distance);
   }
 );
 
@@ -102,3 +81,5 @@ export default nearbySlice1.reducer;
 // Selectors
 export const selectNearbyStations = (state: any) => state.nearby1.stations;
 export const selectNearbyLoading = (state: any) => state.nearby1.loading;
+export const selectNearbyError = (state: any) => state.nearby1.error;
+export const selectUserLocation = (state: any) => state.nearby1.userLocation;

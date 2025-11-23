@@ -1,6 +1,6 @@
 // store/slices/transportSlice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import transportAPI from '@/services/transportAPI';
+import mockTransportService from '@/services/api/mockTransportService';
 
 interface TransportRoute {
   id: string;
@@ -30,7 +30,7 @@ interface TransportState {
   currentDestination: {
     id: string;
     name: string;
-    stationCode: string;
+    stationName: string;
   } | null;
 }
 
@@ -45,57 +45,73 @@ const initialState: TransportState = {
   currentDestination: null,
 };
 
-// Async thunks
-export const fetchTrainSchedules = createAsyncThunk(
-  'transport/fetchTrainSchedules',
-  async ({ stationCode, destinationName }: { stationCode: string; destinationName: string }) => {
-    const data = await transportAPI.getTrainDepartures(stationCode);
-    return {
-      routes: transportAPI.formatTrainDepartures(data),
+// Fetch transport schedules with mock data
+export const fetchTransportSchedules = createAsyncThunk(
+  'transport/fetchSchedules',
+  async ({ 
+    destinationId, 
+    destinationName, 
+    stationName, 
+    type 
+  }: { 
+    destinationId: string; 
+    destinationName: string; 
+    stationName: string;
+    type: 'bus' | 'train';
+  }) => {
+    const result = await mockTransportService.getMockTransportSchedules(
+      destinationId,
       destinationName,
-    };
-  }
-);
-
-export const fetchBusSchedules = createAsyncThunk(
-  'transport/fetchBusSchedules',
-  async ({ atcoCode, destinationName }: { atcoCode: string; destinationName: string }) => {
-    const data = await transportAPI.getBusDepartures(atcoCode);
-    return {
-      routes: transportAPI.formatBusDepartures(data, destinationName),
-      destinationName,
-    };
-  }
-);
-
-export const fetchNearbyStopsAndSchedules = createAsyncThunk(
-  'transport/fetchNearbyStopsAndSchedules',
-  async ({ destinationId, lat, lon }: { destinationId: string; lat: number; lon: number }) => {
-    const destination = transportAPI.getDestinationById(destinationId);
-    if (!destination) throw new Error('Destination not found');
-
-    // Get train schedules using station code
-    const trainData = await transportAPI.getTrainDepartures(destination.stationCode);
-    const trainRoutes = transportAPI.formatTrainDepartures(trainData);
-
-    // Find nearby bus stops
-    const busStops = await transportAPI.findNearbyStops(lat, lon, 'bus_stop');
-    let busRoutes: any[] = [];
+      stationName,
+      type
+    );
     
-    // Get bus schedules from first nearby stop
-    if (busStops?.member && busStops.member.length > 0) {
-      const firstStop = busStops.member[0];
-      const busData = await transportAPI.getBusDepartures(firstStop.atcocode);
-      busRoutes = transportAPI.formatBusDepartures(busData, destination.name);
-    }
-
     return {
-      train: trainRoutes,
-      bus: busRoutes,
+      routes: result.data,
+      type,
       destination: {
-        id: destination.id,
-        name: destination.name,
-        stationCode: destination.stationCode,
+        id: destinationId,
+        name: destinationName,
+        stationName,
+      },
+    };
+  }
+);
+
+// Fetch all schedules (both bus and train)
+export const fetchAllTransportSchedules = createAsyncThunk(
+  'transport/fetchAllSchedules',
+  async ({ 
+    destinationId, 
+    destinationName, 
+    stationName 
+  }: { 
+    destinationId: string; 
+    destinationName: string; 
+    stationName: string;
+  }) => {
+    // Fetch both train and bus schedules
+    const trainResult = await mockTransportService.getMockTransportSchedules(
+      destinationId,
+      destinationName,
+      stationName,
+      'train'
+    );
+    
+    const busResult = await mockTransportService.getMockTransportSchedules(
+      destinationId,
+      destinationName,
+      `${stationName} Bus Stop`,
+      'bus'
+    );
+    
+    return {
+      train: trainResult.data,
+      bus: busResult.data,
+      destination: {
+        id: destinationId,
+        name: destinationName,
+        stationName,
       },
     };
   }
@@ -116,48 +132,39 @@ const transportSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Fetch train schedules
-      .addCase(fetchTrainSchedules.pending, (state) => {
+      // Fetch single type schedules
+      .addCase(fetchTransportSchedules.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchTrainSchedules.fulfilled, (state, action) => {
+      .addCase(fetchTransportSchedules.fulfilled, (state, action) => {
         state.loading = false;
-        state.routes.train = action.payload.routes;
+        if (action.payload.type === 'train') {
+          state.routes.train = action.payload.routes;
+        } else {
+          state.routes.bus = action.payload.routes;
+        }
+        state.currentDestination = action.payload.destination;
       })
-      .addCase(fetchTrainSchedules.rejected, (state, action) => {
+      .addCase(fetchTransportSchedules.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch train schedules';
+        state.error = action.error.message || 'Failed to fetch schedules';
       })
       
-      // Fetch bus schedules
-      .addCase(fetchBusSchedules.pending, (state) => {
+      // Fetch all schedules
+      .addCase(fetchAllTransportSchedules.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchBusSchedules.fulfilled, (state, action) => {
-        state.loading = false;
-        state.routes.bus = action.payload.routes;
-      })
-      .addCase(fetchBusSchedules.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch bus schedules';
-      })
-      
-      // Fetch all nearby stops and schedules
-      .addCase(fetchNearbyStopsAndSchedules.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchNearbyStopsAndSchedules.fulfilled, (state, action) => {
+      .addCase(fetchAllTransportSchedules.fulfilled, (state, action) => {
         state.loading = false;
         state.routes.train = action.payload.train;
         state.routes.bus = action.payload.bus;
         state.currentDestination = action.payload.destination;
       })
-      .addCase(fetchNearbyStopsAndSchedules.rejected, (state, action) => {
+      .addCase(fetchAllTransportSchedules.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch transport schedules';
+        state.error = action.error.message || 'Failed to fetch schedules';
       });
   },
 });
@@ -171,3 +178,4 @@ export const selectTransportRoutes = (state: any, type: 'bus' | 'train') =>
 export const selectTransportLoading = (state: any) => state.transport.loading;
 export const selectTransportError = (state: any) => state.transport.error;
 export const selectCurrentDestination = (state: any) => state.transport.currentDestination;
+export const selectSelectedType = (state: any) => state.transport.selectedType;

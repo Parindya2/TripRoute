@@ -1,140 +1,149 @@
 // app/stations/[type].tsx
+import { useTheme } from '@/_context/ThemeContext';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { selectNearbyStations } from '@/store/slices/nearbySlice1';
+import { fetchAllTransportSchedules } from '@/store/slices/transportSlice';
+import { getThemeColors } from '@/theme/colors';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  StatusBar,
-  ScrollView,
-  TouchableOpacity,
+  ActivityIndicator,
   FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useAppSelector } from '@/store/hooks';
-import { useTheme } from '@/app/context/ThemeContext';
-import { getThemeColors } from '@/app/theme/colors';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const StationsScreen = () => {
+  const { type } = useLocalSearchParams<{ type: 'bus' | 'train' }>();
   const router = useRouter();
-  const { type } = useLocalSearchParams();
   const { isDarkMode } = useTheme();
   const colors = getThemeColors(isDarkMode);
+  const dispatch = useAppDispatch();
 
-  // Get stations from Redux
-  const allStations = useAppSelector(state => state.nearby.stations);
+  const nearbyStations = useAppSelector(selectNearbyStations);
+  const [loadingSchedule, setLoadingSchedule] = React.useState<string | null>(null);
 
   // Filter stations by type
-  const stations = allStations.filter(s => s.type === type);
+  const stations = nearbyStations.filter((s: any) => s.type === type);
 
-  const getTitle = () => {
-    switch (type) {
-      case 'bus':
-        return 'Bus Stations';
-      case 'train':
-        return 'Train Stations';
-      case 'flight':
-        return 'Airports';
-      default:
-        return 'Stations';
+  const handleViewSchedule = async (station: any) => {
+    setLoadingSchedule(station.id);
+    
+    try {
+      // Dispatch action to fetch schedules for this station
+      await dispatch(fetchAllTransportSchedules({
+        destinationId: station.id,
+        destinationName: 'City Center', // You can make this dynamic
+        stationName: station.name,
+      })).unwrap();
+      
+      // Navigate to transport schedule screen (use typed dynamic route)
+      router.push({
+        pathname: '/transport/schedules',
+        params: {
+          destinationId: station.id,
+          stationName: station.name,
+          stationType: type,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching schedules:', error);
+    } finally {
+      setLoadingSchedule(null);
     }
   };
 
-  const getIcon = () => {
-    switch (type) {
-      case 'bus':
-        return 'bus-outline';
-      case 'train':
-        return 'train-outline';
-      case 'flight':
-        return 'airplane-outline';
-      default:
-        return 'location-outline';
-    }
-  };
+  const renderStation = ({ item }: { item: any }) => (
+    <View style={[styles.stationCard, { backgroundColor: colors.surface }]}>
+      <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
+        <Ionicons
+          name={type === 'bus' ? 'bus' : 'train'}
+          size={28}
+          color={colors.primary}
+        />
+      </View>
 
-  const renderStationCard = ({ item }: any) => (
-    <TouchableOpacity style={[styles.stationCard, { backgroundColor: colors.surface }]}>
-      <View style={styles.cardHeader}>
-        <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
-          <Ionicons name={getIcon()} size={24} color={colors.primary} />
-        </View>
-        <View style={styles.stationInfo}>
-          <Text style={[styles.stationName, { color: colors.text }]}>{item.name}</Text>
-          <Text style={[styles.stationAddress, { color: colors.textSecondary }]} numberOfLines={1}>
-            {item.address}
+      <View style={styles.stationInfo}>
+        <Text style={[styles.stationName, { color: colors.text }]}>
+          {item.name}
+        </Text>
+        <View style={styles.distanceRow}>
+          <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
+          <Text style={[styles.distance, { color: colors.textSecondary }]}>
+            {item.distance.toFixed(2)} km away
           </Text>
         </View>
-        <View style={[styles.ratingContainer, { backgroundColor: isDarkMode ? '#3A3000' : '#FFF9E6' }]}>
-          <Ionicons name="star" size={16} color="#FFC107" />
-          <Text style={[styles.ratingText, { color: colors.textSecondary }]}>{item.rating}</Text>
-        </View>
+        {item.atcocode && (
+          <Text style={[styles.code, { color: colors.textTertiary }]}>
+            Code: {item.atcocode}
+          </Text>
+        )}
       </View>
 
-      <View style={[styles.cardDetails, { borderBottomColor: colors.border }]}>
-        <View style={styles.detailItem}>
-          <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
-          <Text style={[styles.detailText, { color: colors.textSecondary }]}>{item.distance} km away</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-          <Text style={[styles.detailText, { color: colors.textSecondary }]}>{item.operatingHours}</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity style={[styles.viewButton, { backgroundColor: colors.primary }]}>
-        <Text style={styles.viewButtonText}>View Schedules</Text>
-        <Ionicons name="arrow-forward" size={16} color="#FFF" />
+      <TouchableOpacity
+        style={[styles.scheduleButton, { backgroundColor: colors.primary }]}
+        onPress={() => handleViewSchedule(item)}
+        disabled={loadingSchedule === item.id}
+      >
+        {loadingSchedule === item.id ? (
+          <ActivityIndicator size="small" color="#FFF" />
+        ) : (
+          <>
+            <Ionicons name="time-outline" size={18} color="#FFF" />
+            <Text style={styles.scheduleButtonText}>Schedule</Text>
+          </>
+        )}
       </TouchableOpacity>
-    </TouchableOpacity>
+    </View>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top']}
+    >
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>{getTitle()}</Text>
-        <View style={{ width: 24 }} />
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          Nearby {type === 'bus' ? 'Bus Stops' : 'Train Stations'}
+        </Text>
+        <View style={styles.placeholder} />
       </View>
 
-      {/* Summary */}
-      <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
-        <View style={[styles.summaryIcon, { backgroundColor: colors.primary + '20' }]}>
-          <Ionicons name={getIcon()} size={32} color={colors.primary} />
-        </View>
-        <View style={styles.summaryContent}>
-          <Text style={[styles.summaryTitle, { color: colors.text }]}>
-            {stations.length} {getTitle().toLowerCase()}
-          </Text>
-          <Text style={[styles.summarySubtitle, { color: colors.textSecondary }]}>
-            near your location
-          </Text>
-        </View>
+      {/* Station Count */}
+      <View style={styles.countContainer}>
+        <Text style={[styles.countText, { color: colors.textSecondary }]}>
+          {stations.length} {stations.length === 1 ? 'station' : 'stations'} found nearby
+        </Text>
       </View>
 
       {/* Stations List */}
-      {stations.length > 0 ? (
-        <FlatList
-          data={stations}
-          renderItem={renderStationCard}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
-      ) : (
-        <View style={styles.emptyContainer}>
-          <Ionicons name={getIcon()} size={48} color={colors.textTertiary} />
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No {getTitle().toLowerCase()} found
-          </Text>
-        </View>
-      )}
+      <FlatList
+        data={stations}
+        keyExtractor={(item) => item.id}
+        renderItem={renderStation}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons
+              name={type === 'bus' ? 'bus-outline' : 'train-outline'}
+              size={64}
+              color={colors.textTertiary}
+            />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              No {type} stations found nearby
+            </Text>
+          </View>
+        }
+      />
     </SafeAreaView>
   );
 };
@@ -145,54 +154,42 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
+    borderBottomWidth: 1,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  summaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  summaryIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
+  backButton: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
   },
-  summaryContent: {
-    flex: 1,
-  },
-  summaryTitle: {
+  headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 4,
   },
-  summarySubtitle: {
-    fontSize: 13,
+  placeholder: {
+    width: 40,
   },
-  listContent: {
+  countContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 30,
+    paddingVertical: 12,
+  },
+  countText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  listContainer: {
+    padding: 20,
+    paddingTop: 8,
   },
   stationCard: {
-    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
+    borderRadius: 16,
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -200,15 +197,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
   iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -217,63 +209,44 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stationName: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 2,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
   },
-  stationAddress: {
-    fontSize: 12,
-  },
-  ratingContainer: {
+  distanceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    marginBottom: 2,
   },
-  ratingText: {
+  distance: {
     fontSize: 13,
-    fontWeight: '600',
   },
-  cardDetails: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
+  code: {
+    fontSize: 11,
+    marginTop: 2,
   },
-  detailItem: {
+  scheduleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    flex: 1,
-  },
-  detailText: {
-    fontSize: 12,
-  },
-  viewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 10,
-    gap: 6,
+    borderRadius: 12,
   },
-  viewButtonText: {
+  scheduleButtonText: {
+    color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFF',
   },
   emptyContainer: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 60,
+    paddingVertical: 60,
   },
   emptyText: {
     fontSize: 16,
-    marginTop: 12,
+    marginTop: 16,
   },
 });
 
