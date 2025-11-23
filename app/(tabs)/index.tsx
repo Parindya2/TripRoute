@@ -32,7 +32,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-// IMPORTANT: Import from react-native-safe-area-context, NOT from react-native
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const HomeScreen = () => {
