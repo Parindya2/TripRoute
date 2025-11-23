@@ -8,7 +8,6 @@ import React from 'react';
 import {
   Alert,
   Image,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -17,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ProfileScreen = () => {
   const router = useRouter();
@@ -117,15 +117,6 @@ const ProfileScreen = () => {
               thumbColor={isDarkMode ? '#00BCD4' : '#F4F3F4'}
             />
           </View>
-
-          {/* Settings */}
-          <TouchableOpacity style={[styles.menuItem, { backgroundColor: colors.surface }]}>
-            <View style={styles.menuItemLeft}>
-              <Ionicons name="settings-outline" size={22} color={colors.textSecondary} />
-              <Text style={[styles.menuText, { color: colors.text }]}>Settings</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-          </TouchableOpacity>
 
           {/* Help & Support */}
           <TouchableOpacity style={[styles.menuItem, { backgroundColor: colors.surface }]}>

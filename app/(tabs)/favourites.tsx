@@ -9,19 +9,20 @@ import React from 'react';
 import {
   FlatList,
   Image,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function FavoritesScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { isDarkMode } = useTheme();
   const colors = getThemeColors(isDarkMode);
+  
   
   // Get favorites from Redux store
   const favoriteIds = useAppSelector(state => state.favorites.items);
