@@ -1,10 +1,10 @@
 // app/_layout.tsx
-import { AuthProvider } from '@/app/_context/AuthContext';
-import { ThemeProvider } from '@/app/_context/ThemeContext';
+import { AuthProvider } from '@/_context/AuthContext';
+import { ThemeProvider } from '@/_context/ThemeContext';
 import { store } from '@/store/store';
 import { Stack } from 'expo-router';
-import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Provider } from 'react-redux';
 
 export default function RootLayout() {
   return (

@@ -1,9 +1,9 @@
 // app/destination/[id].tsx
-import { useTheme } from "@/app/_context/ThemeContext";
-import { getThemeColors } from "@/app/theme/colors";
+import { useTheme } from "@/_context/ThemeContext";
 import { UK_DESTINATIONS } from '@/services/transportAPI';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleFavorite } from '@/store/slices/favoritesSlice';
+import { getThemeColors } from "@/theme/colors";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";

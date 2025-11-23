@@ -1,8 +1,8 @@
 // app/(tabs)/favorites.tsx 
-import { useTheme } from '@/app/_context/ThemeContext';
-import { getThemeColors } from '@/app/theme/colors';
+import { useTheme } from '@/_context/ThemeContext';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { removeFavorite } from '@/store/slices/favoritesSlice';
+import { getThemeColors } from '@/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';

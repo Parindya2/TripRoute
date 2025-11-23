@@ -1,9 +1,8 @@
 // app/(tabs)/_layout.tsx
-import { useTheme } from '@/app/_context/ThemeContext';
-import { getThemeColors } from '@/app/theme/colors';
+import { useTheme } from '@/_context/ThemeContext';
+import { getThemeColors } from '@/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabsLayout() {

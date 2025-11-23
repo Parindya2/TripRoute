@@ -1,7 +1,6 @@
 // app/(tabs)/index.tsx 
-import { useAuth } from '@/app/_context/AuthContext';
-import { useTheme } from '@/app/_context/ThemeContext';
-import { getThemeColors } from '@/app/theme/colors';
+import { useAuth } from '@/_context/AuthContext';
+import { useTheme } from '@/_context/ThemeContext';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   selectAllDestinations,
@@ -17,6 +16,7 @@ import {
   selectNearbyStations,
   setUserLocation
 } from '@/store/slices/nearbySlice1';
+import { getThemeColors } from '@/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';

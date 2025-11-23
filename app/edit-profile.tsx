@@ -1,8 +1,8 @@
  // app/edit-profile.tsx
 
-import { useAuth } from '@/app/_context/AuthContext';
-import { useTheme } from '@/app/_context/ThemeContext';
-import { getThemeColors } from '@/app/theme/colors';
+import { useAuth } from '@/_context/AuthContext';
+import { useTheme } from '@/_context/ThemeContext';
+import { getThemeColors } from '@/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';

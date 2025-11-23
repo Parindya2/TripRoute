@@ -1,6 +1,6 @@
 // app/transport/[destinationId].tsx
-import { useTheme } from '@/app/_context/ThemeContext';
-import { getThemeColors } from '@/app/theme/colors';
+import { useTheme } from '@/_context/ThemeContext';
+import { UK_DESTINATIONS } from '@/services/transportAPI';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchAllTransportSchedules,
@@ -10,6 +10,7 @@ import {
   selectTransportRoutes,
   setSelectedType,
 } from '@/store/slices/transportSlice';
+import { getThemeColors } from '@/theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -23,7 +24,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { UK_DESTINATIONS } from '@/services/transportAPI';
 
 const TransportScreen = () => {
   const { destinationId } = useLocalSearchParams();
