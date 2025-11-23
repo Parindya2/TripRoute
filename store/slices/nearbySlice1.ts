@@ -100,5 +100,5 @@ export const { setUserLocation } = nearbySlice1.actions;
 export default nearbySlice1.reducer;
 
 // Selectors
-export const selectNearbyStations = (state: any) => state.nearby.stations;
-export const selectNearbyLoading = (state: any) => state.nearby.loading;
+export const selectNearbyStations = (state: any) => state.nearby1.stations;
+export const selectNearbyLoading = (state: any) => state.nearby1.loading;

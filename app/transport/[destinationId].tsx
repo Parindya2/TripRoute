@@ -1,9 +1,9 @@
-// app/transport/[destinationId].tsx 
+// app/transport/[destinationId].tsx
 import { useTheme } from '@/app/_context/ThemeContext';
 import { getThemeColors } from '@/app/theme/colors';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
-  fetchNearbyStopsAndSchedules,
+  fetchAllTransportSchedules,
   selectCurrentDestination,
   selectTransportError,
   selectTransportLoading,
@@ -11,20 +11,19 @@ import {
   setSelectedType,
 } from '@/store/slices/transportSlice';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   RefreshControl,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { UK_DESTINATIONS } from '@/services/transportAPI';
 
 const TransportScreen = () => {
   const { destinationId } = useLocalSearchParams();
@@ -34,7 +33,6 @@ const TransportScreen = () => {
   const dispatch = useAppDispatch();
   
   const [refreshing, setRefreshing] = useState(false);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   
   // Redux state
   const selectedType = useAppSelector(state => state.transport.selectedType);
@@ -46,35 +44,27 @@ const TransportScreen = () => {
 
   const currentRoutes = selectedType === 'bus' ? busRoutes : trainRoutes;
 
+  // Get destination details
+  const destination = UK_DESTINATIONS.find(d => d.id === destinationId);
+
   // Load transport data on mount
   useEffect(() => {
-    loadTransportData();
+    if (destination) {
+      loadTransportData();
+    }
   }, [destinationId]);
 
   const loadTransportData = async () => {
+    if (!destination) return;
+
     try {
-      // Get user location
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      let location = { latitude: 51.5074, longitude: -0.1278 }; // Default to London
-      
-      if (status === 'granted') {
-        const currentLocation = await Location.getCurrentPositionAsync({});
-        location = {
-          latitude: currentLocation.coords.latitude,
-          longitude: currentLocation.coords.longitude,
-        };
-      }
-      
-      setUserLocation(location);
-      
-      // Fetch transport schedules
-      dispatch(fetchNearbyStopsAndSchedules({
-        destinationId: String(destinationId),
-        lat: location.latitude,
-        lon: location.longitude,
-      }));
-    } catch (error) {
-      console.error('Error loading transport data:', error);
+      await dispatch(fetchAllTransportSchedules({
+        destinationId: destination.id,
+        destinationName: destination.name,
+        stationName: `${destination.name} Station`,
+      })).unwrap();
+    } catch (err) {
+      console.error('Error loading transport data:', err);
     }
   };
 
@@ -84,297 +74,216 @@ const TransportScreen = () => {
     setRefreshing(false);
   };
 
-  const handleTransportTypeChange = (type: 'bus' | 'train') => {
-    dispatch(setSelectedType(type));
-  };
-
-  if (!currentDestination && loading) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading transport schedules...
+  const renderRoute = ({ item }: { item: any }) => (
+    <TouchableOpacity
+      style={[styles.routeCard, { backgroundColor: colors.surface }]}
+      onPress={() => {
+        // Navigate to detailed route view if needed
+      }}
+    >
+      <View style={styles.routeHeader}>
+        <View style={[styles.typeIcon, { backgroundColor: colors.primary + '20' }]}>
+          <Ionicons
+            name={item.type === 'bus' ? 'bus' : 'train'}
+            size={24}
+            color={colors.primary}
+          />
+        </View>
+        <View style={styles.routeMainInfo}>
+          <Text style={[styles.vehicleName, { color: colors.text }]} numberOfLines={1}>
+            {item.vehicleName}
+          </Text>
+          <Text style={[styles.operator, { color: colors.textSecondary }]}>
+            {item.operator}
           </Text>
         </View>
-      </SafeAreaView>
-    );
-  }
+        <View style={styles.priceContainer}>
+          <Text style={[styles.price, { color: colors.primary }]}>
+            £{item.price}
+          </Text>
+        </View>
+      </View>
 
-  if (error) {
+      <View style={styles.routeDetails}>
+        <View style={styles.timeRow}>
+          <Text style={[styles.time, { color: colors.text }]}>
+            {item.departureTime}
+          </Text>
+          <View style={[styles.durationBadge, { backgroundColor: colors.primary + '20' }]}>
+            <Text style={[styles.duration, { color: colors.primary }]}>
+              {item.duration}
+            </Text>
+          </View>
+          <Text style={[styles.time, { color: colors.text }]}>
+            {item.arrivalTime}
+          </Text>
+        </View>
+
+        <View style={styles.locationRow}>
+          <Text style={[styles.location, { color: colors.textSecondary }]} numberOfLines={1}>
+            {item.departureLocation}
+          </Text>
+          <Text style={[styles.location, { color: colors.textSecondary }]} numberOfLines={1}>
+            {item.arrivalLocation}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.routeFooter}>
+        <View style={styles.statusContainer}>
+          <View style={[styles.statusDot, { 
+            backgroundColor: item.status?.includes('Delayed') ? '#FF6B6B' : '#4CAF50' 
+          }]} />
+          <Text style={[styles.status, { color: colors.textSecondary }]}>
+            {item.status || 'On time'}
+          </Text>
+        </View>
+        {item.platform && (
+          <Text style={[styles.platform, { color: colors.textSecondary }]}>
+            Platform {item.platform}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
+  if (!destination) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={64} color={colors.textTertiary} />
-          <Text style={[styles.errorTitle, { color: colors.text }]}>Unable to Load Data</Text>
-          <Text style={[styles.errorText, { color: colors.textSecondary }]}>{error}</Text>
-          <TouchableOpacity 
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={loadTransportData}
-          >
-            <Ionicons name="refresh" size={20} color="#FFF" />
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.backButtonAlt, { borderColor: colors.primary }]}
-            onPress={() => router.back()}
-          >
-            <Text style={[styles.backButtonTextAlt, { color: colors.primary }]}>Go Back</Text>
-          </TouchableOpacity>
+          <Ionicons name="alert-circle" size={64} color="#FF6B6B" />
+          <Text style={[styles.errorText, { color: colors.text }]}>
+            Destination not found
+          </Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const destinationName = currentDestination?.name || 'Destination';
-
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-      
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top']}
+    >
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.refreshButton}
-          onPress={handleRefresh}
-          disabled={loading}
+        <View style={styles.headerCenter}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            Transport to {destination.name}
+          </Text>
+        </View>
+        <View style={styles.placeholder} />
+      </View>
+
+      {/* Type Selector */}
+      <View style={styles.typeSelectorContainer}>
+        <TouchableOpacity
+          style={[
+            styles.typeButton,
+            {
+              backgroundColor: selectedType === 'train' ? colors.primary : colors.surface,
+              borderColor: selectedType === 'train' ? colors.primary : colors.border,
+            },
+          ]}
+          onPress={() => dispatch(setSelectedType('train'))}
         >
-          <Ionicons name="refresh" size={24} color={colors.primary} />
+          <Ionicons
+            name="train"
+            size={20}
+            color={selectedType === 'train' ? '#FFF' : colors.textSecondary}
+          />
+          <Text
+            style={[
+              styles.typeButtonText,
+              { color: selectedType === 'train' ? '#FFF' : colors.textSecondary },
+            ]}
+          >
+            Train
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.typeButton,
+            {
+              backgroundColor: selectedType === 'bus' ? colors.primary : colors.surface,
+              borderColor: selectedType === 'bus' ? colors.primary : colors.border,
+            },
+          ]}
+          onPress={() => dispatch(setSelectedType('bus'))}
+        >
+          <Ionicons
+            name="bus"
+            size={20}
+            color={selectedType === 'bus' ? '#FFF' : colors.textSecondary}
+          />
+          <Text
+            style={[
+              styles.typeButtonText,
+              { color: selectedType === 'bus' ? '#FFF' : colors.textSecondary },
+            ]}
+          >
+            Bus
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
-        {/* Title */}
-        <Text style={[styles.title, { color: colors.text }]}>Travel to {destinationName}</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Live transport schedules from TransportAPI
-        </Text>
+      {/* Loading State */}
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Loading schedules...
+          </Text>
+        </View>
+      )}
 
-        {/* Transport Type Selector */}
-        <View style={styles.transportSelector}>
+      {/* Error State */}
+      {error && !loading && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={64} color="#FF6B6B" />
+          <Text style={[styles.errorText, { color: colors.text }]}>{error}</Text>
           <TouchableOpacity
-            style={[
-              styles.transportButton,
-              { backgroundColor: colors.surface },
-              selectedType === 'train' && { backgroundColor: colors.primary },
-            ]}
-            onPress={() => handleTransportTypeChange('train')}
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            onPress={loadTransportData}
           >
-            <Ionicons 
-              name="train" 
-              size={20} 
-              color={selectedType === 'train' ? '#FFF' : colors.primary} 
-            />
-            <Text
-              style={[
-                styles.transportButtonText,
-                { color: selectedType === 'train' ? '#FFF' : colors.primary },
-              ]}
-            >
-              Train
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.transportButton,
-              { backgroundColor: colors.surface },
-              selectedType === 'bus' && { backgroundColor: colors.primary },
-            ]}
-            onPress={() => handleTransportTypeChange('bus')}
-          >
-            <Ionicons 
-              name="bus" 
-              size={20} 
-              color={selectedType === 'bus' ? '#FFF' : colors.primary} 
-            />
-            <Text
-              style={[
-                styles.transportButtonText,
-                { color: selectedType === 'bus' ? '#FFF' : colors.primary },
-              ]}
-            >
-              Bus
-            </Text>
+            <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
+      )}
 
-        {/* Info Card */}
-        <View style={[styles.infoCard, { backgroundColor: colors.surface }]}>
-          <View style={[styles.infoIconContainer, { backgroundColor: colors.primary + '20' }]}>
-            <Ionicons name="information-circle" size={20} color={colors.primary} />
-          </View>
-          <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-            Showing live departures to {destinationName}. Times are updated in real-time from UK transport networks.
-          </Text>
-        </View>
-
-        {/* Available Routes Header */}
-        <View style={styles.routesHeader}>
-          <Text style={[styles.routesTitle, { color: colors.text }]}>
-            {selectedType === 'bus' ? 'Bus' : 'Train'} Departures
-          </Text>
-          <Text style={[styles.routesCount, { color: colors.textSecondary }]}>
-            {currentRoutes?.length || 0} departures found
-          </Text>
-        </View>
-
-        {/* Loading State */}
-        {loading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        )}
-
-        {/* Route Cards */}
-        {!loading && currentRoutes && currentRoutes.length > 0 ? (
-          currentRoutes.map((route: any, index: number) => (
-            <View 
-              key={index} 
-              style={[styles.routeContainer, { backgroundColor: colors.surface }]}
-            >
-              {/* Route Header */}
-              <View style={styles.routeHeader}>
-                <View style={[styles.routeIcon, { backgroundColor: colors.primary + '20' }]}>
-                  <Ionicons 
-                    name={selectedType === 'bus' ? 'bus' : 'train'} 
-                    size={24} 
-                    color={colors.primary} 
-                  />
-                </View>
-                <View style={styles.routeHeaderText}>
-                  <Text style={[styles.routeName, { color: colors.text }]}>{route.vehicleName}</Text>
-                  <Text style={[styles.routeOperator, { color: colors.textTertiary }]}>
-                    {route.operator}
-                  </Text>
-                </View>
-                {route.status && (
-                  <View style={[styles.statusBadge, { 
-                    backgroundColor: route.status === 'On time' 
-                      ? '#4CAF50' + '20' 
-                      : '#FF9800' + '20' 
-                  }]}>
-                    <Text style={[styles.statusText, { 
-                      color: route.status === 'On time' ? '#4CAF50' : '#FF9800' 
-                    }]}>
-                      {route.status}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Route Time and Location */}
-              <View style={styles.routeItem}>
-                <View style={styles.routeLeft}>
-                  <View style={[styles.timeCircle, { backgroundColor: colors.primary + '20' }]}>
-                    <Ionicons name="time-outline" size={16} color={colors.primary} />
-                  </View>
-                  <View>
-                    <Text style={[styles.routeTime, { color: colors.text }]}>{route.departureTime}</Text>
-                    <Text style={[styles.routeLabel, { color: colors.textTertiary }]}>Departure</Text>
-                  </View>
-                </View>
-                <View style={styles.routeRight}>
-                  <Text style={[styles.routeLocation, { color: colors.textSecondary }]} numberOfLines={2}>
-                    {route.departureLocation}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Connecting Dots */}
-              <View style={styles.routeDots}>
-                <View style={[styles.dot, { backgroundColor: colors.primary }]} />
-                <View style={[styles.dot, { backgroundColor: colors.primary }]} />
-                <View style={[styles.dot, { backgroundColor: colors.primary }]} />
-              </View>
-
-              {/* Arrival */}
-              <View style={styles.routeItem}>
-                <View style={styles.routeLeft}>
-                  <View style={[styles.timeCircle, { backgroundColor: colors.primary + '20' }]}>
-                    <Ionicons name="checkmark-circle-outline" size={16} color={colors.primary} />
-                  </View>
-                  <View>
-                    <Text style={[styles.routeTime, { color: colors.text }]}>
-                      {route.arrivalTime !== 'N/A' ? route.arrivalTime : 'Varies'}
-                    </Text>
-                    <Text style={[styles.routeLabel, { color: colors.textTertiary }]}>Arrival</Text>
-                  </View>
-                </View>
-                <View style={styles.routeRight}>
-                  <Text style={[styles.routeLocation, { color: colors.textSecondary }]} numberOfLines={2}>
-                    {route.arrivalLocation}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Transport Details */}
-              <View style={[styles.transportDetails, { borderTopColor: colors.border }]}>
-                <View style={styles.detailRow}>
-                  <View style={styles.detailItem}>
-                    <Ionicons name="pricetag-outline" size={14} color={colors.primary} />
-                    <Text style={[styles.transportDetailText, { color: colors.textSecondary }]}>
-                      {route.vehicleNumber}
-                    </Text>
-                  </View>
-                  {route.platform && (
-                    <View style={[styles.platformBadge, { backgroundColor: colors.primary + '20' }]}>
-                      <Text style={[styles.platformText, { color: colors.primary }]}>
-                        Platform {route.platform}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                
-                <View style={styles.bottomDetails}>
-                  <View style={styles.detailBadge}>
-                    <Ionicons name="time-outline" size={14} color={colors.primary} />
-                    <Text style={[styles.badgeText, { color: colors.text }]}>{route.duration}</Text>
-                  </View>
-                  
-                  <View style={styles.detailBadge}>
-                    <Ionicons name="star" size={14} color="#FFC107" />
-                    <Text style={[styles.badgeText, { color: colors.text }]}>
-                      {route.rating.toFixed(1)}
-                    </Text>
-                  </View>
-                  
-                  <View style={[styles.priceBadge, { backgroundColor: colors.primary + '20' }]}>
-                    <Text style={[styles.priceText, { color: colors.primary }]}>
-                      £{route.price}
-                    </Text>
-                  </View>
-                </View>
-              </View>
+      {/* Routes List */}
+      {!loading && !error && (
+        <FlatList
+          data={currentRoutes}
+          keyExtractor={(item) => item.id}
+          renderItem={renderRoute}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons
+                name={selectedType === 'bus' ? 'bus-outline' : 'train-outline'}
+                size={64}
+                color={colors.textTertiary}
+              />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                No {selectedType} schedules available
+              </Text>
             </View>
-          ))
-        ) : !loading ? (
-          <View style={[styles.noRoutesContainer, { backgroundColor: colors.surface }]}>
-            <Ionicons name="sad-outline" size={48} color={colors.textTertiary} />
-            <Text style={[styles.noRoutesText, { color: colors.textSecondary }]}>
-              No {selectedType} departures available at this time
-            </Text>
-            <TouchableOpacity 
-              style={[styles.refreshSmallButton, { backgroundColor: colors.primary }]}
-              onPress={handleRefresh}
-            >
-              <Text style={styles.refreshSmallButtonText}>Refresh</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-      </ScrollView>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -385,11 +294,11 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
   },
   backButton: {
     width: 40,
@@ -397,286 +306,176 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  refreshButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 14,
-    marginBottom: 24,
-  },
-  transportSelector: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  transportButton: {
+  headerCenter: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  transportButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  infoCard: {
-    flexDirection: 'row',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-    gap: 12,
-  },
-  infoIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  routesHeader: {
-    marginBottom: 16,
-  },
-  routesTitle: {
+  headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 4,
   },
-  routesCount: {
-    fontSize: 13,
+  placeholder: {
+    width: 40,
   },
-  loadingContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-  },
-  routeContainer: {
-    borderRadius: 16,
+  typeSelectorContainer: {
+    flexDirection: 'row',
     padding: 20,
-    marginBottom: 16,
+    gap: 12,
+  },
+  typeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  listContainer: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  routeCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 4,
+    elevation: 2,
   },
   routeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    gap: 12,
+    marginBottom: 12,
   },
-  routeIcon: {
+  typeIcon: {
     width: 48,
     height: 48,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
-  routeHeaderText: {
+  routeMainInfo: {
     flex: 1,
   },
-  routeName: {
+  vehicleName: {
     fontSize: 15,
     fontWeight: '600',
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  routeOperator: {
-    fontSize: 12,
+  operator: {
+    fontSize: 13,
   },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+  priceContainer: {
+    alignItems: 'flex-end',
   },
-  statusText: {
-    fontSize: 11,
+  price: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  routeDetails: {
+    marginBottom: 12,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  time: {
+    fontSize: 16,
     fontWeight: '600',
   },
-  routeItem: {
+  durationBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  duration: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  location: {
+    fontSize: 13,
+    flex: 1,
+  },
+  routeFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-  },
-  routeLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minWidth: 120,
-  },
-  timeCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  routeTime: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  routeLabel: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  routeRight: {
-    flex: 1,
-  },
-  routeLocation: {
-    fontSize: 14,
-  },
-  routeDots: {
-    flexDirection: 'column',
-    gap: 4,
-    marginLeft: 17,
-    marginVertical: 8,
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
-  transportDetails: {
-    marginTop: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
   },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  detailItem: {
+  statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  transportDetailText: {
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  status: {
     fontSize: 13,
-    fontWeight: '500',
   },
-  platformBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  platformText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  bottomDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  detailBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  badgeText: {
+  platform: {
     fontSize: 13,
-    fontWeight: '500',
   },
-  priceBadge: {
-    marginLeft: 'auto',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  priceText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  noRoutesContainer: {
-    borderRadius: 16,
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 40,
-    alignItems: 'center',
   },
-  noRoutesText: {
-    fontSize: 15,
+  loadingText: {
     marginTop: 12,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  refreshSmallButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  refreshSmallButtonText: {
-    color: '#FFF',
-    fontWeight: '600',
     fontSize: 14,
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 8,
+    justifyContent: 'center',
+    padding: 40,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: 16,
     textAlign: 'center',
-    marginBottom: 24,
+    marginTop: 16,
+    marginBottom: 20,
   },
   retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 25,
-    gap: 8,
-    marginBottom: 12,
+    borderRadius: 12,
   },
   retryButtonText: {
     color: '#FFF',
+    fontSize: 14,
     fontWeight: '600',
-    fontSize: 16,
   },
-  backButtonAlt: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
-    borderWidth: 2,
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
   },
-  backButtonTextAlt: {
-    fontWeight: '600',
+  emptyText: {
     fontSize: 16,
+    marginTop: 16,
   },
 });
 
