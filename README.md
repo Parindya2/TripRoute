@@ -18,7 +18,7 @@ Simple mobile app (React Native + Expo) where users can search travel destinatio
 ---
 
 ## Notes
-- Uses dummy APIs / mock data for auth and many transport endpoints.
+- Uses dummy APIs for auth and many transport endpoints.
 - Some UK TransportAPI endpoints require paid access — those are replaced with mock JSON in this project.
 
 ---
